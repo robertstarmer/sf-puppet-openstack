@@ -141,8 +141,10 @@ class openstack::all (
   $glance_api_servers      = undef,
   $glance_backend          = 'file',
   # Glance Swift Backend
+  $swift		   = 'true',
   $swift_store_user        = 'swift_store_user',
   $swift_store_key         = 'swift_store_key',
+  $swift_hash_suffix       = 'Gdr8ny7YyWqy2'
   # Nova
   $nova_admin_tenant_name  = 'services',
   $nova_admin_user         = 'nova',
@@ -492,6 +494,31 @@ class openstack::all (
     # set in nova::api
     if ! defined(Nova_config['DEFAULT/volume_api_class']) {
       nova_config { 'DEFAULT/volume_api_class': value => 'nova.volume.cinder.API' }
+    }
+  }
+
+  ######## Swift ##########
+  if ($swift) {
+    class {'openstack::swift::proxy':
+      $swift_admin_user                 = $::swift_admin_user,
+      $swift_user_password              = $::swift_store_key,
+      $swift_hash_suffix                = $::swift_hash_suffix,
+      $swift_local_net_ip               = $::openstack::all::public_address,
+      $proxy_workers                    = 1,
+      $controller_node_address          = $::controller_node_address,
+      $keystone_host                    = $::keystone_host,
+    }
+
+    class { 'openstack::swift::storage':
+      $swift_zone           = 'one',
+      $swift_hash_suffix    = 'swift_secret',
+      $swift_local_net_ip   = $::ipaddress_eth0,
+      $storage_type         = 'loopback',
+      $storage_base_dir     = '/srv/loopback-device',
+    }
+    class { 'swift::keystone::auth':
+      password => $swift_user_password,
+      address  => $swift_proxy_address,
     }
   }
 
